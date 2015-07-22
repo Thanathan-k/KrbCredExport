@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
             sys.exit(0)
 
-        if fileid == 0x76:
+        elif fileid == 0x76:
             print 'Ticket File Found, Converting to ccache'
             f.seek(0)
             KrbCred = krbcredstructs.KrbCredHeader()
