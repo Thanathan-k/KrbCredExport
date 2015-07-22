@@ -7,13 +7,13 @@ import struct
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print "Usage: {0} <input file> <output file>".format(sys.argv[0])
+        print "Usage: {0} <input file> <output files prefix>".format(sys.argv[0])
         sys.exit(0)
 
     with open(sys.argv[1], 'rb') as f:
         fileid, = struct.unpack(">B", f.read(1))
         if fileid == 0x5:
-            print 'CCache File Found, Converting to kirbi'
+            print 'CCache File(s) Found, Converting to kirbi'
             f.seek(0)
             header = ccachestructs.CCacheHeader()
             primary_principal = ccachestructs.Principal()
@@ -21,31 +21,40 @@ if __name__ == "__main__":
 
             header.parsefile(f)
             primary_principal.parsefile(f)
-            credential.parsefile(f)
 
-            KrbCred = krbcredstructs.KrbCredHeader()
-            KrbCred.ticketpart.ticket = credential.ticket.data
-            KrbCred.ticketpart.encpart.etype = credential.keyblock.etype
-            krbcredinfo = KrbCred.ticketpart.encpart.krbcredinfo
-            krbcredinfo.key.key = credential.keyblock.key
-            krbcredinfo.key.keytype = credential.keyblock.keytype
-            krbcredinfo.prealm.principal_realm = primary_principal.realm.data
-            krbcredinfo.pname.principal_components = primary_principal.components
-            krbcredinfo.pname.principal_name_type = primary_principal.name_type
-            krbcredinfo.flags.ticket_flags = credential.tktFlags
-            krbcredinfo.starttime.time = credential.times.starttime
-            krbcredinfo.endtime.time = credential.times.endtime
-            krbcredinfo.renew_till.time = credential.times.renew_till
-            krbcredinfo.srealm.server_realm = credential.server.realm.data
-            krbcredinfo.sname.server_components = credential.server.components
-            krbcredinfo.sname.server_name_type = credential.server.name_type
-            krbcredinfo.createkrbcrdinfo()
+            i=0
+            ## Check if you've reached the end of the file. If not get the next credential
+            while(f.read(1)!=''):
+                f.seek(-1, 1)
+                credential.parsefile(f)
 
-            with open(sys.argv[2], 'wb') as o:
-                o.write(KrbCred.tostring())
+                KrbCred = krbcredstructs.KrbCredHeader()
+                KrbCred.ticketpart.ticket = credential.ticket.data
+                KrbCred.ticketpart.encpart.etype = credential.keyblock.etype
+                krbcredinfo = KrbCred.ticketpart.encpart.krbcredinfo
+                krbcredinfo.key.key = credential.keyblock.key
+                krbcredinfo.key.keytype = credential.keyblock.keytype
+                krbcredinfo.prealm.principal_realm = primary_principal.realm.data
+                krbcredinfo.pname.principal_components = primary_principal.components
+                krbcredinfo.pname.principal_name_type = primary_principal.name_type
+                krbcredinfo.flags.ticket_flags = credential.tktFlags
+                krbcredinfo.starttime.time = credential.times.starttime
+                krbcredinfo.endtime.time = credential.times.endtime
+                krbcredinfo.renew_till.time = credential.times.renew_till
+                krbcredinfo.srealm.server_realm = credential.server.realm.data
+                krbcredinfo.sname.server_components = credential.server.components
+                krbcredinfo.sname.server_name_type = credential.server.name_type
+                krbcredinfo.createkrbcrdinfo()
+
+
+                ## Write seperate files for each ticket found. postfix is just a number for now.
+                with open(sys.argv[2]+"_"+str(i), 'wb') as o:
+                    o.write(KrbCred.tostring())
+                i=i+1
+
             sys.exit(0)
 
-        elif fileid == 0x76:
+        if fileid == 0x76:
             print 'Ticket File Found, Converting to ccache'
             f.seek(0)
             KrbCred = krbcredstructs.KrbCredHeader()
